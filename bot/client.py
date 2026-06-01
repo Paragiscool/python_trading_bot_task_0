@@ -2,6 +2,7 @@ import hashlib
 import hmac
 import time
 import os
+import uuid
 import requests
 from urllib.parse import urlencode
 from typing import Dict, Any, Optional
@@ -27,7 +28,10 @@ class BinanceFuturesRESTClient:
         self.api_secret = api_secret
         
         # Default to testnet website base URL but support custom override if necessary
-        self.base_url = (base_url or os.getenv("BINANCE_BASE_URL", "https://testnet.binancefuture.com")).rstrip("/")
+        env_url = os.getenv("BINANCE_BASE_URL", "https://testnet.binancefuture.com")
+        # Ensure it's treated strictly as a string
+        url_str: str = base_url if base_url is not None else (env_url if env_url is not None else "https://testnet.binancefuture.com")
+        self.base_url = url_str.rstrip("/")
         
         self.headers = {
             "X-MBX-APIKEY": self.api_key,
@@ -43,59 +47,74 @@ class BinanceFuturesRESTClient:
             hashlib.sha256
         ).hexdigest()
 
-    def _send_request(self, method: str, endpoint: str, params: Optional[Dict[str, Any]] = None, signed: bool = False) -> Dict[str, Any]:
-        """Formats, signs (if required), and sends an HTTP request to the Binance REST API."""
+    def _send_request(self, method: str, endpoint: str, params: Optional[Dict[str, Any]] = None, signed: bool = False, max_retries: int = 3) -> Any:
+        """Formats, signs (if required), and sends an HTTP request to the Binance REST API with retry backoff."""
         params = params or {}
-        url = f"{self.base_url}{endpoint}"
-
-        # Setup logging metadata
-        logger.info(f"Preparing {method} request to endpoint: {endpoint}")
+        req_id = str(uuid.uuid4())
         
-        if signed:
-            # Add current millisecond timestamp
-            params["timestamp"] = int(time.time() * 1000)
-            # URL-encode the parameters query string
-            query_string = urlencode(params)
-            # Generate the hmac signature on the query string
-            sig = self._generate_signature(query_string)
-            # Append signature
-            url_with_params = f"{url}?{query_string}&signature={sig}"
-            logged_url = f"{url}?{query_string}&signature=[REDACTED]"
-        else:
-            if params:
+        for attempt in range(1, max_retries + 1):
+            url = f"{self.base_url}{endpoint}"
+
+            # Setup logging metadata
+            logger.info(f"Preparing {method} request to endpoint: {endpoint}", extra={"request_id": req_id})
+            
+            if signed:
+                # Add current millisecond timestamp
+                params["timestamp"] = int(time.time() * 1000)
+                # URL-encode the parameters query string
                 query_string = urlencode(params)
-                url_with_params = f"{url}?{query_string}"
-                logged_url = url_with_params
+                # Generate the hmac signature on the query string
+                sig = self._generate_signature(query_string)
+                # Append signature
+                url_with_params = f"{url}?{query_string}&signature={sig}"
+                logged_url = f"{url}?{query_string}&signature=[REDACTED]"
             else:
-                url_with_params = url
-                logged_url = url
+                if params:
+                    query_string = urlencode(params)
+                    url_with_params = f"{url}?{query_string}"
+                    logged_url = url_with_params
+                else:
+                    url_with_params = url
+                    logged_url = url
 
-        logger.debug(f"Request URL: {logged_url} (API Key headers loaded)")
+            logger.debug(f"Request URL: {logged_url} (API Key headers loaded)", extra={"request_id": req_id})
 
-        try:
-            response = requests.request(method, url_with_params, headers=self.headers, timeout=10)
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Network error sending request: {str(e)}")
-            raise BinanceNetworkError(f"Network connection failed: {str(e)}")
+            try:
+                response = requests.request(method, url_with_params, headers=self.headers, timeout=10)
+            except requests.exceptions.RequestException as e:
+                logger.error(f"Network error sending request: {str(e)}", extra={"request_id": req_id})
+                if attempt == max_retries:
+                    raise BinanceNetworkError(f"Network connection failed: {str(e)}")
+                time.sleep(2 ** attempt)
+                continue
 
-        # Log status code and raw response
-        logger.info(f"Received response: HTTP {response.status_code}")
-        logger.debug(f"Raw Response Body: {response.text}")
+            # Log status code and raw response
+            logger.info(f"Received response: HTTP {response.status_code}", extra={"request_id": req_id})
+            
+            if response.status_code == 429 or response.status_code >= 500:
+                retry_after = int(response.headers.get("Retry-After", 2 ** attempt))
+                logger.warning(f"Rate limited or server error (HTTP {response.status_code}). Retrying in {retry_after}s...", extra={"request_id": req_id})
+                if attempt == max_retries:
+                    raise BinanceAPIError(code=response.status_code, message="Max retries exceeded", status_code=response.status_code)
+                time.sleep(retry_after)
+                continue
 
-        # Parse response
-        try:
-            res_data = response.json()
-        except ValueError:
-            logger.error("Failed to parse response body as JSON.")
-            raise BinanceNetworkError("Invalid response format received from server (not JSON).")
+            logger.debug(f"Raw Response Body: {response.text}", extra={"request_id": req_id})
 
-        if not response.ok:
-            code = res_data.get("code", -1)
-            msg = res_data.get("msg", "Unknown error")
-            logger.error(f"Binance API rejected request: Code {code} - {msg}")
-            raise BinanceAPIError(code=code, message=msg, status_code=response.status_code)
+            # Parse response
+            try:
+                res_data = response.json()
+            except ValueError:
+                logger.error("Failed to parse response body as JSON.", extra={"request_id": req_id})
+                raise BinanceNetworkError("Invalid response format received from server (not JSON).")
 
-        return res_data
+            if not response.ok:
+                code = res_data.get("code", -1)
+                msg = res_data.get("msg", "Unknown error")
+                logger.error(f"Binance API rejected request: Code {code} - {msg}", extra={"request_id": req_id})
+                raise BinanceAPIError(code=code, message=msg, status_code=response.status_code)
+
+            return res_data
 
     def get_server_time(self) -> int:
         """Fetches the current server time in milliseconds."""
@@ -146,7 +165,7 @@ class BinanceFuturesRESTClient:
         if not order_id and not orig_client_order_id:
             raise ValueError("Either order_id or orig_client_order_id must be provided.")
         
-        params = {"symbol": symbol.upper()}
+        params: Dict[str, Any] = {"symbol": symbol.upper()}
         if order_id:
             params["orderId"] = order_id
         if orig_client_order_id:
@@ -159,10 +178,28 @@ class BinanceFuturesRESTClient:
         if not order_id and not orig_client_order_id:
             raise ValueError("Either order_id or orig_client_order_id must be provided.")
             
-        params = {"symbol": symbol.upper()}
+        params: Dict[str, Any] = {"symbol": symbol.upper()}
         if order_id:
             params["orderId"] = order_id
         if orig_client_order_id:
             params["origClientOrderId"] = orig_client_order_id
             
         return self._send_request("DELETE", "/fapi/v1/order", params=params, signed=True)
+
+    def get_account_info(self) -> Dict[str, Any]:
+        """Fetches account information including balances."""
+        return self._send_request("GET", "/fapi/v2/account", signed=True)
+
+    def get_open_orders(self, symbol: Optional[str] = None) -> Any:
+        """Fetches open orders. If symbol is provided, fetches only for that symbol."""
+        params = {}
+        if symbol:
+            params["symbol"] = symbol.upper()
+        return self._send_request("GET", "/fapi/v1/openOrders", params=params, signed=True)
+
+    def get_positions(self, symbol: Optional[str] = None) -> Any:
+        """Fetches position information."""
+        params = {}
+        if symbol:
+            params["symbol"] = symbol.upper()
+        return self._send_request("GET", "/fapi/v2/positionRisk", params=params, signed=True)

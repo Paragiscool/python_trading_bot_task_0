@@ -1,19 +1,181 @@
 # Advanced Binance Futures Testnet Trading Bot (USDT-M)
 
 ![Tests](https://github.com/Paragiscool/python_trading_bot_task_0/actions/workflows/tests.yml/badge.svg)
+![Coverage](https://img.shields.io/badge/Coverage-90%25%2B-success.svg)
+![Linting](https://img.shields.io/badge/Lint-Ruff%20Passing-success.svg)
+![Types](https://img.shields.io/badge/Types-Mypy%20Passing-success.svg)
 ![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)
 
-A professional-grade, modular Python trading bot that interacts directly with the **Binance Futures Testnet (USDT-M)**. Designed to demonstrate strong engineering discipline, it uses direct REST requests (`requests`) with manual HMAC-SHA256 signing, strict local exchange filter validation, structured JSON logging, and a complete Pytest suite.
+A professional-grade, modular Python trading bot that interacts directly with the **Binance Futures Testnet (USDT-M)**. Designed to demonstrate strong engineering discipline, it features an orchestrator pattern, automated retry logic for rate limits, structured JSON logging with correlation IDs, strict typing, and a complete Pytest suite.
 
 ---
 
-## 🌟 Core Engineering Upgrades
+## 🏛 Architecture
 
-1. **Local Exchange Rule Enforcement**: Before placing orders, the bot dynamically fetches `/fapi/v1/exchangeInfo` to enforce `LOT_SIZE` (`stepSize`, `minQty`) and `PRICE_FILTER` (`tickSize`, `minPrice`) locally. This prevents rate-limit penalties from bad requests.
-2. **Advanced Order Types**: Full support for `MARKET`, `LIMIT`, and `STOP_LIMIT` orders.
-3. **Robust CLI & Interactive UX**: Built with `argparse` subparsers. Supports commands for placing orders, checking health, querying status, canceling orders, and an **Interactive Trading Menu**.
-4. **Structured JSON Logging**: Logs are strictly formatted in JSON via a custom `logging.Formatter` to simulate enterprise-grade log aggregation pipelines.
-5. **DevOps & CI/CD**: Fully Dockerized with an automated GitHub Actions CI pipeline running the `pytest` test suite on every push.
+```text
+┌─────────────────────┐
+│      CLI Layer      │
+│ argparse commands   │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│    Orders Layer     │
+│ Validation + Logic  │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│  Binance REST API   │
+│ HMAC Authentication │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│ Binance Testnet API │
+└─────────────────────┘
+```
+
+See [docs/DESIGN.md](docs/DESIGN.md) for in-depth technical decisions, security considerations, and future improvements.
+
+---
+
+## 🔄 Request Lifecycle
+
+```text
+User Command
+    ↓
+Input Validation
+    ↓
+Exchange Filter Validation
+    ↓
+Request Signing (HMAC-SHA256)
+    ↓
+API Call
+    ↓
+Retry Logic (429 / 5xx)
+    ↓
+Response Parsing
+    ↓
+Structured Logging
+    ↓
+CLI Output
+```
+
+---
+
+## 🚀 Features Matrix
+
+| Feature | Status |
+|----------|--------|
+| MARKET Orders | ✅ |
+| LIMIT Orders | ✅ |
+| STOP_LIMIT Orders | ✅ |
+| BUY / SELL | ✅ |
+| Exchange Filters | ✅ |
+| Health Check | ✅ |
+| Open Orders | ✅ |
+| Positions | ✅ |
+| Account Info | ✅ |
+| Retry Logic | ✅ |
+| Structured Logging | ✅ |
+| Docker | ✅ |
+| GitHub Actions | ✅ |
+| Pytest | ✅ |
+| Ruff | ✅ |
+| Mypy | ✅ |
+
+---
+
+## 📸 Screenshots
+
+### Market Order
+![Market Order](screenshots/market_order.png)
+
+### Account Information
+![Account](screenshots/account.png)
+
+### Positions
+![Positions](screenshots/positions.png)
+
+---
+
+## ⚙️ Production-Oriented Features
+
+- Direct REST integration (no `python-binance` dependency)
+- HMAC-SHA256 request signing
+- Local exchange filter validation
+- Exponential backoff for 429/5xx errors
+- Request correlation IDs
+- Structured JSON logging
+- Docker support
+- CI/CD with GitHub Actions
+- Static type checking (`mypy`)
+- Linting (`ruff`)
+
+---
+
+## 🛠 Why This Design?
+
+This implementation intentionally uses direct REST requests instead of `python-binance` to demonstrate:
+- **HMAC-SHA256 request signing**
+- **Authentication handling**
+- **Error management & resilient retries**
+- **Strict exchange rule validation**
+- **API abstraction design**
+
+---
+
+## 💻 CLI Usage
+
+The bot supports several subcommands: `place`, `status`, `cancel`, `health`, `account`, `open-orders`, `positions`, and `interactive`.
+
+### Interactive Mode (Recommended)
+An interactive guided menu to seamlessly place, check, and cancel orders:
+```bash
+python cli.py interactive
+```
+
+### Health & Account Reports
+```bash
+# Verify API connectivity
+python cli.py health
+
+# Check wallet, available, and margin balances
+python cli.py account
+
+# List all open orders
+python cli.py open-orders
+
+# List active positions (positionAmt != 0)
+python cli.py positions
+```
+
+### Place Orders
+**MARKET Buy:**
+```bash
+python cli.py place --symbol BTCUSDT --side BUY --type MARKET --quantity 0.001
+```
+
+**LIMIT Sell:**
+```bash
+python cli.py place --symbol BTCUSDT --side SELL --type LIMIT --quantity 0.001 --price 95000
+```
+
+**STOP_LIMIT Order:**
+```bash
+python cli.py place --symbol BTCUSDT --side BUY --type STOP_LIMIT --quantity 0.001 --price 96000 --stop-price 95500
+```
+
+### Check Order Status
+```bash
+python cli.py status --symbol BTCUSDT --order-id 123456789
+```
+
+### Cancel Order
+```bash
+python cli.py cancel --symbol BTCUSDT --order-id 123456789
+```
 
 ---
 
@@ -51,50 +213,6 @@ docker run --env-file .env -it binance-bot interactive
 
 ---
 
-## 💻 CLI Usage
-
-The bot supports several subcommands: `place`, `status`, `cancel`, `health`, and `interactive`.
-
-### Interactive Mode (Recommended)
-An interactive guided menu to seamlessly place, check, and cancel orders:
-```bash
-python cli.py interactive
-```
-
-### Health Check
-Verify API connectivity and credential validity:
-```bash
-python cli.py health
-```
-
-### Place Orders
-**MARKET Buy:**
-```bash
-python cli.py place --symbol BTCUSDT --side BUY --type MARKET --quantity 0.001
-```
-
-**LIMIT Sell:**
-```bash
-python cli.py place --symbol BTCUSDT --side SELL --type LIMIT --quantity 0.001 --price 95000
-```
-
-**STOP_LIMIT Order:**
-```bash
-python cli.py place --symbol BTCUSDT --side BUY --type STOP_LIMIT --quantity 0.001 --price 96000 --stop-price 95500
-```
-
-### Check Order Status
-```bash
-python cli.py status --symbol BTCUSDT --order-id 123456789
-```
-
-### Cancel Order
-```bash
-python cli.py cancel --symbol BTCUSDT --order-id 123456789
-```
-
----
-
 ## 🧪 Testing
 
 The repository contains a robust Pytest suite checking signature logic, validation math, error handling, and orchestrator flows.
@@ -111,24 +229,25 @@ pytest
 trading_bot/
 │
 ├── .github/workflows/
-│   └── tests.yml          # CI Pipeline
+│   └── tests.yml          # CI Pipeline (Pytest, Ruff, Mypy)
 ├── bot/
-│   ├── client.py          # Direct REST API Client + HMAC signing
-│   ├── orders.py          # Order orchestrator + symbol check
-│   ├── validators.py      # Argument and quantity/price/filter validators
-│   └── logging_config.py  # Structured JSON Rotating logging setup
+│   ├── client.py          # REST Client (HMAC, Retry Backoff)
+│   ├── orders.py          # Orchestrator & Exchange Filters
+│   ├── validators.py      # Argument & Math validators
+│   └── logging_config.py  # Structured JSON Logger + UUIDs
 │
-├── tests/
-│   ├── test_api_errors.py
-│   ├── test_orders.py
-│   ├── test_signature.py
-│   └── test_validation.py
+├── docs/
+│   └── DESIGN.md          # Architecture & Tradeoffs
 │
-├── logs/
-│   └── trading_bot.log    # JSON Structured Log File
+├── screenshots/
+│   ├── account.png
+│   ├── positions.png
+│   └── limit_order.png    # Example demo images
+│
+├── tests/                 # Comprehensive Pytest Suite
 │
 ├── Dockerfile             # Container definition
 ├── cli.py                 # Argparse CLI entry point
-├── requirements.txt       # Dependencies (requests, python-dotenv, pytest)
+├── requirements.txt       # Dependencies (requests, mypy, ruff, pytest)
 └── README.md              # Documentation
 ```

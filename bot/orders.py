@@ -119,3 +119,31 @@ def cancel_existing_order(symbol: str, order_id: Optional[int] = None, orig_clie
     valid_symbol = validate_symbol(symbol)
     client = get_client()
     return client.cancel_order(valid_symbol, order_id, orig_client_order_id)
+
+def get_wallet_balance() -> Dict[str, Any]:
+    """Retrieves key wallet and margin balances."""
+    client = get_client()
+    account_info = client.get_account_info()
+    return {
+        "wallet_balance": account_info.get("totalWalletBalance"),
+        "available_balance": account_info.get("availableBalance"),
+        "unrealized_pnl": account_info.get("totalUnrealizedProfit"),
+        "margin_balance": account_info.get("totalMarginBalance")
+    }
+
+def get_active_orders(symbol: Optional[str] = None) -> Any:
+    """Retrieves all open orders."""
+    if symbol:
+        symbol = validate_symbol(symbol)
+    client = get_client()
+    return client.get_open_orders(symbol)
+
+def get_active_positions(symbol: Optional[str] = None) -> Any:
+    """Retrieves all active positions (positionAmt != 0)."""
+    if symbol:
+        symbol = validate_symbol(symbol)
+    client = get_client()
+    positions = client.get_positions(symbol)
+    # Filter for non-zero positions
+    active = [p for p in positions if float(p.get("positionAmt", 0)) != 0.0]
+    return active

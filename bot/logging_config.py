@@ -36,6 +36,9 @@ def setup_logging():
             }
             if record.exc_info:
                 log_record["details"] = self.formatException(record.exc_info)
+            if hasattr(record, "request_id"):
+                log_record["request_id"] = record.request_id
+                
             return json.dumps(log_record)
 
     json_formatter = JsonFormatter()

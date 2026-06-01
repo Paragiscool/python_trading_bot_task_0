@@ -1,9 +1,8 @@
 import argparse
 import sys
-from typing import Optional
+from argparse import Namespace
 
-from bot.orders import execute_order, check_health, get_order_status, cancel_existing_order
-from bot.logging_config import logger
+from bot.orders import execute_order, check_health, get_order_status, cancel_existing_order, get_wallet_balance, get_active_orders, get_active_positions
 
 def print_separator():
     print("-" * 40)
@@ -98,6 +97,47 @@ def handle_cancel(args):
         print(f"\n[FAILURE] Cancel failed: {str(e)}")
         sys.exit(1)
 
+def handle_account(args):
+    print_header("ACCOUNT INFO")
+    try:
+        b = get_wallet_balance()
+        print(f"Wallet Balance:      {b.get('wallet_balance')}")
+        print(f"Available Balance:   {b.get('available_balance')}")
+        print(f"Unrealized PnL:      {b.get('unrealized_pnl')}")
+        print(f"Margin Balance:      {b.get('margin_balance')}")
+        print_separator()
+    except Exception as e:
+        print(f"\n[FAILURE] Failed to fetch account info: {str(e)}")
+        sys.exit(1)
+
+def handle_open_orders(args):
+    print_header("OPEN ORDERS")
+    try:
+        orders = get_active_orders(args.symbol)
+        if not orders:
+            print("No open orders found.")
+        else:
+            for o in orders:
+                print(f"Symbol: {o.get('symbol')} | OrderID: {o.get('orderId')} | Side: {o.get('side')} | Type: {o.get('type')} | Price: {o.get('price')} | OrigQty: {o.get('origQty')}")
+        print_separator()
+    except Exception as e:
+        print(f"\n[FAILURE] Failed to fetch open orders: {str(e)}")
+        sys.exit(1)
+
+def handle_positions(args):
+    print_header("ACTIVE POSITIONS")
+    try:
+        positions = get_active_positions(args.symbol)
+        if not positions:
+            print("No active positions found.")
+        else:
+            for p in positions:
+                print(f"Symbol: {p.get('symbol')} | PositionAmt: {p.get('positionAmt')} | EntryPrice: {p.get('entryPrice')} | unRealizedProfit: {p.get('unRealizedProfit')}")
+        print_separator()
+    except Exception as e:
+        print(f"\n[FAILURE] Failed to fetch positions: {str(e)}")
+        sys.exit(1)
+
 def interactive_menu():
     print_header("INTERACTIVE TRADING BOT")
     while True:
@@ -105,9 +145,12 @@ def interactive_menu():
         print("1. Place Order")
         print("2. Check Order Status")
         print("3. Cancel Order")
-        print("4. Check API Health")
-        print("5. Exit")
-        choice = input("\nEnter choice (1-5): ").strip()
+        print("4. Check Account Info")
+        print("5. Check Open Orders")
+        print("6. Check Active Positions")
+        print("7. Check API Health")
+        print("8. Exit")
+        choice = input("\nEnter choice (1-8): ").strip()
         
         if choice == '1':
             symbol = input("Symbol (e.g. BTCUSDT): ").strip()
@@ -122,39 +165,48 @@ def interactive_menu():
             if o_type == "STOP_LIMIT":
                 stop_price = input("Stop Price: ").strip()
                 
-            class Args: pass
-            args = Args()
-            args.symbol = symbol; args.side = side; args.type = o_type; args.quantity = qty
-            args.price = price; args.stop_price = stop_price
+            args = Namespace(symbol=symbol, side=side, type=o_type, quantity=qty, price=price, stop_price=stop_price)
             handle_place(args)
             
         elif choice == '2':
             symbol = input("Symbol: ").strip()
             oid = input("Order ID (leave blank if none): ").strip()
             coid = input("Client Order ID (leave blank if none): ").strip()
-            class Args: pass
-            args = Args()
-            args.symbol = symbol
-            args.order_id = int(oid) if oid else None
-            args.orig_client_order_id = coid if coid else None
+            args = Namespace(
+                symbol=symbol,
+                order_id=int(oid) if oid else None,
+                orig_client_order_id=coid if coid else None
+            )
             handle_status(args)
             
         elif choice == '3':
             symbol = input("Symbol: ").strip()
             oid = input("Order ID (leave blank if none): ").strip()
             coid = input("Client Order ID (leave blank if none): ").strip()
-            class Args: pass
-            args = Args()
-            args.symbol = symbol
-            args.order_id = int(oid) if oid else None
-            args.orig_client_order_id = coid if coid else None
+            args = Namespace(
+                symbol=symbol,
+                order_id=int(oid) if oid else None,
+                orig_client_order_id=coid if coid else None
+            )
             handle_cancel(args)
             
         elif choice == '4':
-            class Args: pass
-            handle_health(Args())
+            handle_account(Namespace())
             
         elif choice == '5':
+            symbol = input("Symbol (leave blank for all): ").strip()
+            args = Namespace(symbol=symbol if symbol else None)
+            handle_open_orders(args)
+            
+        elif choice == '6':
+            symbol = input("Symbol (leave blank for all): ").strip()
+            args = Namespace(symbol=symbol if symbol else None)
+            handle_positions(args)
+            
+        elif choice == '7':
+            handle_health(Namespace())
+            
+        elif choice == '8':
             print("Exiting...")
             sys.exit(0)
         else:
@@ -187,6 +239,17 @@ def main():
     cancel_parser.add_argument("--order-id", type=int, default=None, help="Binance Order ID")
     cancel_parser.add_argument("--orig-client-order-id", default=None, help="Client Order ID")
     
+    # Account command
+    subparsers.add_parser("account", help="Check account balances")
+    
+    # Open Orders command
+    open_orders_parser = subparsers.add_parser("open-orders", help="Check open orders")
+    open_orders_parser.add_argument("--symbol", required=False, default=None, help="Optional trading symbol")
+    
+    # Positions command
+    positions_parser = subparsers.add_parser("positions", help="Check active positions")
+    positions_parser.add_argument("--symbol", required=False, default=None, help="Optional trading symbol")
+    
     # Health command
     subparsers.add_parser("health", help="Check API health and credentials")
     
@@ -201,6 +264,12 @@ def main():
         handle_status(args)
     elif args.command == "cancel":
         handle_cancel(args)
+    elif args.command == "account":
+        handle_account(args)
+    elif args.command == "open-orders":
+        handle_open_orders(args)
+    elif args.command == "positions":
+        handle_positions(args)
     elif args.command == "health":
         handle_health(args)
     elif args.command == "interactive":

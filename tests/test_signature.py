@@ -1,4 +1,3 @@
-import pytest
 from bot.client import BinanceFuturesRESTClient
 
 def test_generate_signature():
