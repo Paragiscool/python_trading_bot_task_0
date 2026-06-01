@@ -109,6 +109,21 @@ pip install -r requirements.txt
 
 ---
 
+## 📁 Repository Structure
+
+```text
+├── bot/                # Core trading logic, REST client, and validators
+├── docs/               # Architecture, API Reference, and engineering decisions
+├── proof/              # Verifiable JSON logs of actual Testnet executions
+├── scripts/            # Helper automation scripts for generating evidence
+├── screenshots/        # Visual proofs of UI functionality
+├── tests/              # Pytest coverage suite (mocks network layer)
+├── cli.py              # Main interactive command-line interface
+└── requirements.txt    # Python dependencies
+```
+
+---
+
 ## 📸 Screenshots
 
 ### Interactive Menu
