@@ -12,19 +12,12 @@ A professional-grade, modular Python trading bot that interacts directly with th
 ---
 
 ## 🚀 Features
-✓ **MARKET Orders**  
-✓ **LIMIT Orders**  
-✓ **STOP_LIMIT Orders**  
-✓ **Account Information**  
-✓ **Open Orders**  
-✓ **Position Monitoring**  
+✓ **MARKET / LIMIT / STOP_LIMIT Orders**  
+✓ **Account & Position Monitoring**  
 ✓ **Exchange Filter Validation**  
 ✓ **Structured Logging**  
 ✓ **Retry/Backoff Logic**  
-✓ **Docker Support**  
-✓ **CI/CD Pipelines**  
-✓ **Type Checking (`mypy`)**  
-✓ **Test Coverage (`pytest-cov`)**
+✓ **Docker & CI/CD Supported**
 
 ---
 
@@ -32,62 +25,23 @@ A professional-grade, modular Python trading bot that interacts directly with th
 
 ```text
 ┌─────────────────────┐
-│      CLI Layer      │
-│ argparse commands   │
+│      CLI Layer      │ (cli.py)
 └──────────┬──────────┘
            │
            ▼
 ┌─────────────────────┐
-│    Orders Layer     │
-│ Validation + Logic  │
+│    Orders Layer     │ (Validation + Logic)
 └──────────┬──────────┘
            │
            ▼
 ┌─────────────────────┐
-│  Binance REST API   │
-│ HMAC Authentication │
+│  Binance REST API   │ (HMAC + Retries)
 └──────────┬──────────┘
            │
            ▼
 ┌─────────────────────┐
 │ Binance Testnet API │
 └─────────────────────┘
-```
-
----
-
-## 🔄 Request Flow (Sequence Diagram)
-
-```text
-User
- │
- │ place order
- ▼
-CLI Layer
- │
- ▼
-Validator (bot/validators.py)
- │
- ▼
-ExchangeInfo Cache (Local Filter Rules)
- │
- ▼
-Order Orchestrator
- │
- ▼
-REST Client (Injects UUID & Signs request)
- │
- ▼
-Binance Futures Testnet
- │
- ▼ (429 Rate Limit)
-REST Client (Exponential Backoff & Retry)
- │
- ▼ (200 OK)
-Structured JSON Logger
- │
- ▼
-CLI Output
 ```
 
 ---
@@ -107,26 +61,16 @@ source venv/bin/activate  # On Windows: .\venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
----
-
-## 📁 Repository Structure
-
-```text
-├── bot/                # Core trading logic, REST client, and validators
-├── docs/               # Architecture, API Reference, and engineering decisions
-├── proof/              # Verifiable JSON logs of actual Testnet executions
-├── scripts/            # Helper automation scripts for generating evidence
-├── screenshots/        # Visual proofs of UI functionality
-├── tests/              # Pytest coverage suite (mocks network layer)
-├── cli.py              # Main interactive command-line interface
-└── requirements.txt    # Python dependencies
+### 3. Execution
+```bash
+python cli.py interactive
 ```
 
 ---
 
 ## 📸 Screenshots
 
-### Interactive Menu
+### Interactive Menu & Health
 ![Health](screenshots/health.png)
 
 ### Market Order Execution
@@ -137,118 +81,29 @@ pip install -r requirements.txt
 
 ---
 
-## 💻 Examples
-
-The bot supports an interactive menu or direct CLI commands:
-
-**Interactive Menu:**
-```bash
-python cli.py interactive
-```
-
-**Direct Execution:**
-```bash
-python cli.py place --symbol BTCUSDT --side BUY --type MARKET --quantity 0.001
-python cli.py place --symbol BTCUSDT --side SELL --type LIMIT --quantity 0.001 --price 95000
-python cli.py account
-python cli.py positions
-python cli.py open-orders
-```
-
-*For more details, see [docs/API_REFERENCE.md](docs/API_REFERENCE.md).*
-
----
-
-## ✅ Validation Coverage
-
-| Scenario | Handled By | Result |
-|-----------|-----------|---------|
-| Invalid Symbol Format | `validators.py` | Local Exception |
-| Order Price violates `tickSize` | `orders.py` | Local Exception |
-| Order Qty violates `stepSize` | `orders.py` | Local Exception |
-| HTTP 429 (Rate Limit) | `client.py` | Exponential Backoff Retry |
-| HTTP 500+ (Server Error) | `client.py` | Exponential Backoff Retry |
-| Network Timeout | `requests` | Bubble Up `BinanceNetworkError` |
-
----
-
-## 📝 Logging Strategy
-
-Our logging strategy is built for enterprise observability and traceability:
+## 📁 Repository Structure
 
 ```text
-Request Received
-        ↓
-Validation Rules Checked
-        ↓
-REST Request Dispatched
-        ↓
-Network Response (HTTP Status)
-        ↓
-Structured JSON Log Emitted
-```
-
-**Example Log Output:**
-```json
-{
-  "timestamp": "2024-05-15T12:00:00Z",
-  "level": "INFO",
-  "event": "Received response: HTTP 200",
-  "logger_name": "trading_bot",
-  "request_id": "a1b2c3d4-e5f6-7890-1234-56789abcdef0"
-}
+trading_bot_task_0/
+├── bot/                 # Core trading bot logic, clients, and validators
+├── tests/               # Pytest unit tests (Mocks network layer)
+├── docs/                # Architecture, design, and reference documentation
+├── proof/               # Verifiable JSON logs of actual Testnet executions
+├── screenshots/         # UI interaction examples
+├── scripts/             # Utility scripts for evidence generation
+├── cli.py               # Main interactive CLI entrypoint
+├── requirements.txt     # Python dependencies
+└── README.md
 ```
 
 ---
 
-## 🧪 Testing
-The repository contains a robust Pytest suite checking signature logic, validation math, error handling, and orchestrator flows.
-```bash
-pytest --cov=bot
-```
+## 📚 Documentation Links
 
----
+Deep dives into the system design, error handling, and API capabilities:
 
-## 🐳 Docker Support
-You can run the bot without installing Python locally:
-```bash
-docker build -t binance-bot .
-docker run --env-file .env -it binance-bot interactive
-```
-
----
-
-## 🚀 CI/CD
-This project utilizes GitHub Actions. On every push to the repository, the pipeline executes:
-- `ruff check .`
-- `mypy .`
-- `pytest --cov=bot`
-
----
-
-## 🛠 Design Decisions
-
-This implementation intentionally uses direct REST requests instead of `python-binance` to demonstrate:
-- **HMAC-SHA256 request signing**
-- **Authentication handling**
-- **Error management & resilient retries**
-- **Strict exchange rule validation**
-- **API abstraction design**
-
-*For a deep dive into the architecture and tradeoffs, read [docs/DECISIONS.md](docs/DECISIONS.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).*
-
----
-
-## 🔮 Future Improvements
-- **WebSocket Integration**: Replace the REST polling for `orderStatus` and `accountInfo` with real-time WebSocket streams.
-- **AsyncIO**: Migrate from the synchronous `requests` library to `httpx` and `asyncio` to handle hundreds of concurrent requests efficiently.
-- **State Layer**: Introduce a lightweight local database (e.g., SQLite or Redis) to persist order states across bot restarts.
-
----
-
-## 📊 Project Metrics
-
-- **Python Files:** 12
-- **Unit Tests:** 9
-- **Coverage:** 90%+
-- **Verified Execution Proofs:** See `proof/` directory for sanitized real-world API JSON responses.
+- [ARCHITECTURE.md](docs/ARCHITECTURE.md) - Request lifecycle and system layers.
+- [DECISIONS.md](docs/DECISIONS.md) - Engineering tradeoffs and rationale.
+- [API_REFERENCE.md](docs/API_REFERENCE.md) - Full CLI command guide and examples.
+- [VALIDATION.md](docs/VALIDATION.md) - Error handling and local exchange filter rules.
+- [Project_Overview.md](docs/Project_Overview.md) - 1-page executive summary.
