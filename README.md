@@ -1,26 +1,25 @@
-# Simplified Binance Futures Testnet Trading Bot (USDT-M)
+# Advanced Binance Futures Testnet Trading Bot (USDT-M)
 
-A clean, modular Python bot that places Market and Limit orders on the **Binance Futures Testnet (USDT-M)**. 
+![Tests](https://github.com/Paragiscool/python_trading_bot_task_0/actions/workflows/tests.yml/badge.svg)
+![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)
 
-To demonstrate strong engineering discipline and deep API protocol understanding, this bot is built using **direct HTTP REST requests** (`requests`) and **manual HMAC-SHA256 query string signing** rather than pre-built third-party wrappers.
+A professional-grade, modular Python trading bot that interacts directly with the **Binance Futures Testnet (USDT-M)**. Designed to demonstrate strong engineering discipline, it uses direct REST requests (`requests`) with manual HMAC-SHA256 signing, strict local exchange filter validation, structured JSON logging, and a complete Pytest suite.
 
 ---
 
-## Quick Reference (30-Second Setup)
+## 🌟 Core Engineering Upgrades
 
-### 1. Installation
-Ensure Python 3.8+ is installed:
-```bash
-python -m venv venv
-# On Windows:
-.\venv\Scripts\activate
-# On Linux/macOS:
-source venv/bin/activate
+1. **Local Exchange Rule Enforcement**: Before placing orders, the bot dynamically fetches `/fapi/v1/exchangeInfo` to enforce `LOT_SIZE` (`stepSize`, `minQty`) and `PRICE_FILTER` (`tickSize`, `minPrice`) locally. This prevents rate-limit penalties from bad requests.
+2. **Advanced Order Types**: Full support for `MARKET`, `LIMIT`, and `STOP_LIMIT` orders.
+3. **Robust CLI & Interactive UX**: Built with `argparse` subparsers. Supports commands for placing orders, checking health, querying status, canceling orders, and an **Interactive Trading Menu**.
+4. **Structured JSON Logging**: Logs are strictly formatted in JSON via a custom `logging.Formatter` to simulate enterprise-grade log aggregation pipelines.
+5. **DevOps & CI/CD**: Fully Dockerized with an automated GitHub Actions CI pipeline running the `pytest` test suite on every push.
 
-pip install -r requirements.txt
-```
+---
 
-### 2. Configuration
+## 🚀 Quick Start (Local & Docker)
+
+### 1. Configuration
 Copy the environment template:
 ```bash
 cp .env.example .env
@@ -31,103 +30,105 @@ BINANCE_API_KEY=your_actual_testnet_api_key
 BINANCE_API_SECRET=your_actual_testnet_secret
 ```
 
-### 3. Usage & Examples
-
-#### Place MARKET order:
+### 2. Local Installation
+Ensure Python 3.12+ is installed:
 ```bash
-python cli.py --symbol BTCUSDT --side BUY --type MARKET --quantity 0.001
+python -m venv venv
+# On Windows:
+.\venv\Scripts\activate
+# On Linux/macOS:
+source venv/bin/activate
+
+pip install -r requirements.txt
 ```
 
-#### Place LIMIT order:
+### 3. Docker Installation
+You can run the bot without installing Python locally:
 ```bash
-python cli.py --symbol BTCUSDT --side SELL --type LIMIT --quantity 0.001 --price 95000
+docker build -t binance-bot .
+docker run --env-file .env -it binance-bot interactive
 ```
 
 ---
 
-## Example Output
+## 💻 CLI Usage
 
-### MARKET BUY Order Output
-```text
-========================================
-         ORDER REQUEST SUMMARY          
-========================================
-Symbol:    BTCUSDT
-Side:      BUY
-Type:      MARKET
-Quantity:  0.001
-Price:     N/A
-========================================
-Sending order request...
+The bot supports several subcommands: `place`, `status`, `cancel`, `health`, and `interactive`.
 
-[SUCCESS] Order placed successfully!
-----------------------------------------
-         ORDER RESPONSE DETAILS         
-----------------------------------------
-Order ID:      13671168962
-Status:        NEW
-Executed Qty:  0.0000
-Avg Price:     N/A (Pending Execution)
-----------------------------------------
+### Interactive Mode (Recommended)
+An interactive guided menu to seamlessly place, check, and cancel orders:
+```bash
+python cli.py interactive
 ```
 
-### LIMIT SELL Order Output
-```text
-========================================
-         ORDER REQUEST SUMMARY          
-========================================
-Symbol:    BTCUSDT
-Side:      SELL
-Type:      LIMIT
-Quantity:  0.001
-Price:     95000
-========================================
-Sending order request...
+### Health Check
+Verify API connectivity and credential validity:
+```bash
+python cli.py health
+```
 
-[SUCCESS] Order placed successfully!
-----------------------------------------
-         ORDER RESPONSE DETAILS         
-----------------------------------------
-Order ID:      13671178627
-Status:        NEW
-Executed Qty:  0.0000
-Avg Price:     95000.00 (Limit Price)
-----------------------------------------
+### Place Orders
+**MARKET Buy:**
+```bash
+python cli.py place --symbol BTCUSDT --side BUY --type MARKET --quantity 0.001
+```
+
+**LIMIT Sell:**
+```bash
+python cli.py place --symbol BTCUSDT --side SELL --type LIMIT --quantity 0.001 --price 95000
+```
+
+**STOP_LIMIT Order:**
+```bash
+python cli.py place --symbol BTCUSDT --side BUY --type STOP_LIMIT --quantity 0.001 --price 96000 --stop-price 95500
+```
+
+### Check Order Status
+```bash
+python cli.py status --symbol BTCUSDT --order-id 123456789
+```
+
+### Cancel Order
+```bash
+python cli.py cancel --symbol BTCUSDT --order-id 123456789
 ```
 
 ---
 
-## Core Features
-1. **Direct REST Implementation**: Features manual HMAC-SHA256 signature hashing and timestamp synchronization to prevent clock drift issues.
-2. **Defensive Programming**: Before initiating orders, the bot calls `GET /fapi/v1/exchangeInfo` to verify the symbol exists on the testnet. It immediately raises `Invalid symbol: <symbol>` on invalid pairs (e.g. `ABCXYZ`) instead of making a wasteful signed request.
-3. **Structured Architecture**: Separates parsing (`cli.py`), core orchestrator (`bot/orders.py`), API transporter (`bot/client.py`), logging setup (`bot/logging_config.py`), and validation (`bot/validators.py`).
-4. **Log Security**: Detailed tracing logs are written to `logs/trading_bot.log`. All signature hashes and secret params are redacted as `[REDACTED]` to prevent security leaks.
+## 🧪 Testing
+
+The repository contains a robust Pytest suite checking signature logic, validation math, error handling, and orchestrator flows.
+
+```bash
+# Run the test suite locally
+pytest
+```
 
 ---
 
-## Directory Structure
+## 📂 Directory Structure
 ```text
 trading_bot/
 │
+├── .github/workflows/
+│   └── tests.yml          # CI Pipeline
 ├── bot/
-│   ├── __init__.py
 │   ├── client.py          # Direct REST API Client + HMAC signing
 │   ├── orders.py          # Order orchestrator + symbol check
-│   ├── validators.py      # Argument and quantity/price validators
-│   └── logging_config.py  # Standard rotating logging setup
+│   ├── validators.py      # Argument and quantity/price/filter validators
+│   └── logging_config.py  # Structured JSON Rotating logging setup
+│
+├── tests/
+│   ├── test_api_errors.py
+│   ├── test_orders.py
+│   ├── test_signature.py
+│   └── test_validation.py
 │
 ├── logs/
-│   ├── trading_bot.log    # Detailed API requests (redacted signatures)
-│   ├── market_order.log   # Terminal capture of MARKET order run
-│   └── limit_order.log    # Terminal capture of LIMIT order run
+│   └── trading_bot.log    # JSON Structured Log File
 │
-├── screenshots/           # Screenshot captures of terminal output
-│
-├── .env.example           # Example environment template
-├── .env                   # Active environment variables (git-ignored)
-├── .gitignore             # Git ignore file (git-ignored)
+├── Dockerfile             # Container definition
 ├── cli.py                 # Argparse CLI entry point
-├── requirements.txt       # Minimal, exact dependencies (requests, python-dotenv)
-├── verify_bot.py          # Mock verification suite for offline testing
+├── requirements.txt       # Dependencies (requests, python-dotenv, pytest)
 └── README.md              # Documentation
 ```

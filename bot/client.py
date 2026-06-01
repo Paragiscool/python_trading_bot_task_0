@@ -113,21 +113,56 @@ class BinanceFuturesRESTClient:
         order_type: str,
         quantity: float,
         price: Optional[float] = None,
+        stop_price: Optional[float] = None,
         time_in_force: str = "GTC"
     ) -> Dict[str, Any]:
-        """Places an order (MARKET or LIMIT) on Binance Futures Testnet (USDT-M)."""
+        """Places an order (MARKET, LIMIT, or STOP_LIMIT) on Binance Futures Testnet (USDT-M)."""
+        # Map STOP_LIMIT to Binance API's 'STOP' order type
+        api_order_type = "STOP" if order_type.upper() == "STOP_LIMIT" else order_type.upper()
+        
         params = {
             "symbol": symbol.upper(),
             "side": side.upper(),
-            "type": order_type.upper(),
+            "type": api_order_type,
             "quantity": quantity
         }
 
-        if order_type.upper() == "LIMIT":
+        if api_order_type in ("LIMIT", "STOP"):
             if price is None:
-                raise ValueError("Price is required for LIMIT orders.")
+                raise ValueError("Price is required for LIMIT and STOP orders.")
             params["price"] = price
             params["timeInForce"] = time_in_force
+            
+        if api_order_type == "STOP":
+            if stop_price is None:
+                raise ValueError("Stop price is required for STOP orders.")
+            params["stopPrice"] = stop_price
 
         logger.info(f"Placing signed order request: {params}")
         return self._send_request("POST", "/fapi/v1/order", params=params, signed=True)
+
+    def query_order(self, symbol: str, order_id: Optional[int] = None, orig_client_order_id: Optional[str] = None) -> Dict[str, Any]:
+        """Queries the status of an existing order."""
+        if not order_id and not orig_client_order_id:
+            raise ValueError("Either order_id or orig_client_order_id must be provided.")
+        
+        params = {"symbol": symbol.upper()}
+        if order_id:
+            params["orderId"] = order_id
+        if orig_client_order_id:
+            params["origClientOrderId"] = orig_client_order_id
+            
+        return self._send_request("GET", "/fapi/v1/order", params=params, signed=True)
+
+    def cancel_order(self, symbol: str, order_id: Optional[int] = None, orig_client_order_id: Optional[str] = None) -> Dict[str, Any]:
+        """Cancels an existing order."""
+        if not order_id and not orig_client_order_id:
+            raise ValueError("Either order_id or orig_client_order_id must be provided.")
+            
+        params = {"symbol": symbol.upper()}
+        if order_id:
+            params["orderId"] = order_id
+        if orig_client_order_id:
+            params["origClientOrderId"] = orig_client_order_id
+            
+        return self._send_request("DELETE", "/fapi/v1/order", params=params, signed=True)
