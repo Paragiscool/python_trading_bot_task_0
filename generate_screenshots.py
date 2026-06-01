@@ -1,6 +1,7 @@
 import subprocess
 from PIL import Image, ImageDraw, ImageFont
 import os
+from typing import Any
 
 commands = {
     "health.png": "python cli.py health",
@@ -13,6 +14,7 @@ commands = {
 
 os.makedirs("screenshots", exist_ok=True)
 
+font: Any
 try:
     font = ImageFont.truetype("C:\\Windows\\Fonts\\consola.ttf", 16)
 except Exception:
