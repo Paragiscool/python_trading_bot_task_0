@@ -1,0 +1,20 @@
+========================================
+         ORDER REQUEST SUMMARY          
+========================================
+Symbol:    BTCUSDT
+Side:      BUY
+Type:      MARKET
+Quantity:  0.001
+Price:     N/A
+========================================
+Sending order request...
+
+[SUCCESS] Order placed successfully!
+----------------------------------------
+         ORDER RESPONSE DETAILS         
+----------------------------------------
+Order ID:      13670792683
+Status:        NEW
+Executed Qty:  0.0000
+Avg Price:     N/A (Pending Execution)
+----------------------------------------

@@ -1,0 +1,20 @@
+========================================
+         ORDER REQUEST SUMMARY          
+========================================
+Symbol:    BTCUSDT
+Side:      SELL
+Type:      LIMIT
+Quantity:  0.001
+Price:     95000
+========================================
+Sending order request...
+
+[SUCCESS] Order placed successfully!
+----------------------------------------
+         ORDER RESPONSE DETAILS         
+----------------------------------------
+Order ID:      13670811448
+Status:        NEW
+Executed Qty:  0.0000
+Avg Price:     95000.00 (Limit Price)
+----------------------------------------
