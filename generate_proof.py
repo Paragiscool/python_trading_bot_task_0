@@ -19,9 +19,12 @@ def save_proof(filename, data):
 
 if __name__ == "__main__":
     load_dotenv()
+    api_key = os.getenv("BINANCE_API_KEY", "")
+    api_secret = os.getenv("BINANCE_API_SECRET", "")
+    
     client = BinanceFuturesRESTClient(
-        api_key=os.getenv("BINANCE_API_KEY"),
-        api_secret=os.getenv("BINANCE_API_SECRET")
+        api_key=str(api_key),
+        api_secret=str(api_secret)
     )
 
     # 1. Health
